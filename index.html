@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phonics Pal - Early Reading & Blending</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .bouncy-btn {
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+        }
+        .bouncy-btn:active {
+            transform: scale(0.93) translateY(2px);
+        }
+        .glow-active {
+            box-shadow: 0 0 0 6px #facc15, 0 12px 24px -4px rgba(0, 0, 0, 0.25) !important;
+            background-color: #fef08a !important;
+            color: #0f172a !important;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen text-slate-900 flex flex-col">
+
+    <!-- Header / Navigation -->
+    <header class="bg-white/95 backdrop-blur-md shadow-sm border-b-2 border-purple-200 py-2 px-4 md:px-6 flex flex-wrap justify-between items-center gap-2 sticky top-0 z-50">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl">🌟</span>
+            <h1 class="text-xl md:text-2xl font-bold text-purple-950">Phonics Pal</h1>
+            <span id="audio-status" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">⚡ Loading Voices...</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="bg-amber-100 border-2 border-amber-500 text-amber-950 px-3 py-1 rounded-full font-bold text-sm md:text-base flex items-center shadow-sm">
+                ⭐ <span id="star-count" class="ml-1">0</span>
+            </div>
+            <button onclick="triggerYouGotIt()" class="bouncy-btn bg-pink-600 hover:bg-pink-700 border-2 border-pink-800 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition text-sm flex items-center space-x-1">
+                <span>🎉</span> <span>You Got It!</span>
+            </button>
+            <button onclick="switchTab('sentence')" id="nav-sentence" class="bg-purple-800 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition text-sm">📖 Sentences</button>
+            <button onclick="switchTab('matcher')" id="nav-matcher" class="bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm">🎯 2-Letter Match</button>
+            <button onclick="switchTab('freebuild')" id="nav-freebuild" class="bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm">🧱 Build Words</button>
+        </div>
+    </header>
+
+    <!-- Main Container (Wider & More Compact to Prevent Scrolling) -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 py-2 md:px-6 md:py-3 flex flex-col justify-start">
+
+        <!-- TAB 0: 2-LETTER SOUND MATCHER (Digraphs & Blends Focus) -->
+        <section id="tab-matcher" class="hidden flex flex-col items-center w-full">
+            <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 bg-white/80 px-4 py-2 rounded-2xl border border-purple-200">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">2-Letter Sound Matcher!</h2>
+                    <p class="text-slate-600 text-xs md:text-sm font-medium">Listen to the sound, then tap the 2-letter team that makes it!</p>
+                </div>
+                <div class="inline-flex flex-wrap justify-center gap-1.5 bg-purple-100 p-1 rounded-xl border border-purple-200">
+                    <button id="match-filter-digraphs" onclick="setMatcherFilter('digraphs')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm bg-purple-800 text-white shadow">Digraphs (sh, ch, th, wh, ck)</button>
+                    <button id="match-filter-blends" onclick="setMatcherFilter('blends')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-purple-950 hover:bg-purple-200">Blends (st, sl, fl, cr, dr)</button>
+                    <button id="match-filter-all" onclick="setMatcherFilter('all')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-purple-950 hover:bg-purple-200">Mix All</button>
+                </div>
+            </div>
+
+            <div class="bg-white border-4 border-purple-400 rounded-3xl p-4 md:p-5 w-full shadow-lg flex flex-col items-center">
+                <!-- Top Controls & Feedback in One Compact Row -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 w-full bg-purple-50 p-3 rounded-2xl border-2 border-purple-200">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onpointerdown="playMatcherPrompt()" class="bouncy-btn bg-purple-800 hover:bg-purple-900 border-b-4 border-purple-950 text-white font-bold px-6 py-3 rounded-2xl shadow-md flex items-center space-x-2 text-xl">
+                            <span class="text-2xl">🔊</span> <span>Hear Sound</span>
+                        </button>
+                        <button onpointerdown="playMatcherWordExample()" class="bouncy-btn bg-amber-100 hover:bg-amber-200 border-2 border-amber-500 text-amber-950 font-bold px-4 py-3 rounded-2xl shadow-sm flex items-center space-x-1.5 text-base">
+                            <span>💡 Hear in a Word</span>
+                        </button>
+                    </div>
+                    <p id="matcher-feedback" class="text-lg md:text-xl font-bold text-purple-900 text-center flex-1">Tap "Hear Sound" to start!</p>
+                    <button onclick="loadNewMatcherRound(true)" class="bouncy-btn bg-white hover:bg-slate-100 border-2 border-slate-400 text-slate-900 font-bold px-4 py-3 rounded-2xl shadow-sm flex items-center space-x-1.5 text-base">
+                        <span>🎲 Next Sound</span>
+                    </button>
+                </div>
+
+                <!-- High-Contrast Oversized Choice Grid (4 Columns on Wide Screens) -->
+                <div id="matcher-choices" class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-4">
+                    <!-- Injected via JS -->
+                </div>
+
+                <!-- Explore All 2-Letter Sounds Reference Bar -->
+                <div class="w-full border-t-2 border-slate-200 pt-3">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 text-center">Practice Bar — Instant sound check:</p>
+                    <div id="matcher-explore-bar" class="flex flex-wrap justify-center gap-2">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: WORD BUILDER WORKSHOP (Widescreen 3-Column Palette) -->
+        <section id="tab-freebuild" class="hidden flex flex-col items-center w-full">
+            <!-- Compact Top Header Bar -->
+            <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 bg-white/80 px-4 py-2 rounded-2xl border border-teal-200">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900" id="builder-title">Listen & Build the Word!</h2>
+                    <span class="hidden md:inline text-slate-500 text-sm font-medium" id="builder-subtitle">Match block colors to the 3 boxes below!</span>
+                </div>
+                <div class="inline-flex bg-teal-100 p-1 rounded-xl border border-teal-300">
+                    <button id="mode-challenge-btn" onclick="setBuilderMode('challenge')" class="px-4 py-1 rounded-lg font-bold text-xs md:text-sm bg-teal-800 text-white shadow transition">🎯 Word Challenge</button>
+                    <button id="mode-free-btn" onclick="setBuilderMode('free')" class="px-4 py-1 rounded-lg font-bold text-xs md:text-sm text-teal-950 hover:bg-teal-200 transition">🎨 Free Play</button>
+                </div>
+            </div>
+
+            <!-- Word Builder Stage -->
+            <div class="bg-white border-4 border-teal-500 rounded-3xl p-4 w-full shadow-lg flex flex-col items-center">
+
+                <!-- Top Action & Slot Row (Keeps Word Always Visible at the Top) -->
+                <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4 items-center">
+                    <!-- Left Controls: Target Audio & Action Buttons -->
+                    <div class="lg:col-span-5 flex flex-col gap-2 bg-teal-50 border-2 border-teal-300 rounded-2xl p-3">
+                        <div id="builder-challenge-bar" class="flex flex-wrap items-center justify-between gap-2">
+                            <button onpointerdown="playBuilderTargetWord()" class="bouncy-btn bg-teal-800 hover:bg-teal-900 text-white font-bold px-4 py-2.5 rounded-xl shadow flex items-center space-x-1.5 transition text-base flex-1 justify-center">
+                                <span class="text-xl">🔊</span> <span>Hear Word</span>
+                            </button>
+                            <button onpointerdown="playBuilderTargetHint()" class="bouncy-btn bg-amber-200 border-2 border-amber-500 text-slate-950 font-bold px-3.5 py-2.5 rounded-xl text-sm hover:bg-amber-300 transition">
+                                💡 Hint
+                            </button>
+                            <button onclick="nextBuilderChallenge()" class="text-sm font-bold text-teal-950 bg-white px-3.5 py-2.5 rounded-xl border-2 border-teal-400 hover:bg-teal-100 transition">
+                                Next 🎲
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-2 justify-between pt-1 border-t border-teal-200">
+                            <button id="check-word-btn" onclick="checkBuiltWord()" class="bouncy-btn bg-purple-800 hover:bg-purple-900 text-white font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center space-x-1 text-sm flex-1 justify-center">
+                                <span>✅ Check Word</span>
+                            </button>
+                            <button onclick="clearFreeWord()" class="bouncy-btn bg-slate-200 border-2 border-slate-400 text-slate-900 font-bold px-3.5 py-2 rounded-xl text-sm hover:bg-slate-300 transition">
+                                Clear 🗑️
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Zone: Active Built Sound Slots -->
+                    <div class="lg:col-span-7 flex flex-col">
+                        <div class="flex justify-between items-center mb-1 px-1">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Your Word Blocks (Tap a block to remove):</span>
+                            <span id="builder-feedback" class="text-sm font-bold text-teal-900"></span>
+                        </div>
+                        <div id="free-slots" class="flex flex-wrap justify-center gap-3 min-h-[96px] bg-slate-100 border-4 border-dashed border-slate-300 rounded-2xl p-2.5 items-center">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3-COLUMN SIDE-BY-SIDE SOUND PALETTE (Blue | Pink | Yellow) -->
+                <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <!-- Column 1: Blue 2-Letter Digraphs & Blends -->
+                    <div class="md:col-span-4 bg-cyan-50 p-3 rounded-2xl border-2 border-cyan-400 flex flex-col">
+                        <span class="text-xs md:text-sm font-bold text-cyan-950 mb-2 text-center uppercase tracking-wide">🟦 1. 2-Letter Teams (Blue)</span>
+                        <div class="flex flex-wrap gap-2 justify-center items-center flex-1" id="palette-digraphs"></div>
+                    </div>
+
+                    <!-- Column 2: Pink Short Vowels -->
+                    <div class="md:col-span-3 bg-rose-50 p-3 rounded-2xl border-2 border-rose-400 flex flex-col">
+                        <span class="text-xs md:text-sm font-bold text-rose-950 mb-2 text-center uppercase tracking-wide">🟥 2. Short Vowels (Pink)</span>
+                        <div class="flex flex-wrap gap-2 justify-center items-center flex-1" id="palette-vowels"></div>
+                    </div>
+
+                    <!-- Column 3: Yellow Consonants -->
+                    <div class="md:col-span-5 bg-amber-50 p-3 rounded-2xl border-2 border-amber-400 flex flex-col">
+                        <span class="text-xs md:text-sm font-bold text-amber-950 mb-2 text-center uppercase tracking-wide">🟨 3. Consonants (Yellow)</span>
+                        <div class="flex flex-wrap gap-1.5 justify-center items-center flex-1" id="palette-consonants"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: SENTENCE BUILDER (Widescreen Compact Layout) -->
+        <section id="tab-sentence" class="flex flex-col items-center w-full">
+            <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 bg-white/80 px-4 py-2 rounded-2xl border border-indigo-200">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">Build & Read Sentences!</h2>
+                    <p class="text-slate-600 text-xs md:text-sm font-medium">Listen to the sentence, then tap the word tiles in order!</p>
+                </div>
+                <div class="inline-flex flex-wrap justify-center gap-1.5 bg-indigo-100 p-1 rounded-xl border border-indigo-200">
+                    <button id="sent-filter-all" onclick="setSentenceFilter('all')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm bg-indigo-800 text-white shadow">All</button>
+                    <button id="sent-filter-cvc" onclick="setSentenceFilter('cvc')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-indigo-950 hover:bg-indigo-200">Short Vowels</button>
+                    <button id="sent-filter-digraphs" onclick="setSentenceFilter('digraphs')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-indigo-950 hover:bg-indigo-200">Digraphs (sh, ch, th)</button>
+                    <button id="sent-filter-blends" onclick="setSentenceFilter('blends')" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-indigo-950 hover:bg-indigo-200">Blends (st, sl, fl)</button>
+                </div>
+            </div>
+
+            <!-- Sentence Stage -->
+            <div class="bg-white border-4 border-indigo-400 rounded-3xl p-4 md:p-5 w-full shadow-lg flex flex-col items-center">
+
+                <!-- Compact Top Prompt & Audio Controls Bar -->
+                <div class="bg-indigo-50 border-2 border-indigo-300 rounded-2xl p-3.5 w-full mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onpointerdown="playTargetSentencePrompt()" class="bouncy-btn bg-indigo-800 text-white font-bold px-5 py-3 rounded-2xl shadow-md text-lg flex items-center space-x-2 hover:bg-indigo-900 transition">
+                            <span>🔊 Listen to Target</span>
+                        </button>
+                        <button onpointerdown="playSentenceSlowly()" class="bouncy-btn bg-amber-100 border-2 border-amber-500 text-amber-950 font-bold px-4 py-3 rounded-2xl shadow-sm text-base flex items-center space-x-1.5 hover:bg-amber-200 transition">
+                            <span>🐢 Word by Word</span>
+                        </button>
+                    </div>
+                    <div id="sentence-prompt-text" class="text-lg md:text-xl font-bold text-indigo-950 text-center flex-1">Tap "Listen to Target" to hear the sentence!</div>
+                    <button onclick="loadNewSentence(true)" class="bouncy-btn text-base font-bold text-indigo-950 bg-white px-4 py-3 rounded-2xl shadow-sm hover:bg-indigo-100 transition border-2 border-indigo-300">
+                        <span>🎲 Next Sentence</span>
+                    </button>
+                </div>
+
+                <!-- Sentence Slot Drop Zone -->
+                <div class="w-full mb-4">
+                    <div class="flex justify-between items-center mb-1.5 px-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-600">Your Sentence (Tap a word to remove it):</p>
+                        <span id="sentence-slot-counter" class="text-xs font-bold text-indigo-900"></span>
+                    </div>
+                    <div id="sentence-slots" class="flex flex-wrap justify-center gap-2.5 min-h-[84px] bg-slate-100 border-4 border-dashed border-indigo-400 rounded-2xl p-3 items-center">
+                        <!-- Filled slots injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Available Word Tiles Bank -->
+                <div class="w-full mb-4">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 text-center">Word Bank — Tap words to build your sentence:</p>
+                    <div id="word-bank" class="flex flex-wrap justify-center gap-3">
+                        <!-- Word bank tiles injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex flex-wrap gap-3 w-full justify-center border-t border-slate-200 pt-3">
+                    <button onpointerdown="readBuiltSentence()" class="bouncy-btn bg-purple-800 hover:bg-purple-900 text-white text-lg font-bold px-6 py-2.5 rounded-2xl shadow-md flex items-center space-x-2">
+                        <span>🔊 Read My Sentence</span>
+                    </button>
+                    <button onclick="triggerYouGotIt()" class="bouncy-btn bg-pink-600 hover:bg-pink-700 text-white text-lg font-bold px-5 py-2.5 rounded-2xl shadow-md flex items-center space-x-2">
+                        <span>🎉 You Got It!</span>
+                    </button>
+                    <button onclick="clearSentenceSlots()" class="bouncy-btn bg-slate-200 border-2 border-slate-400 text-slate-900 font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-slate-300 transition text-lg">
+                        Clear 🗑️
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Custom Success / Reward Modal -->
+    <div id="reward-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white border-4 border-amber-300 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform animate-bounce-slow">
+            <div class="text-6xl mb-3">🎉⭐🏆</div>
+            <h3 class="text-2xl font-bold text-amber-600 mb-2">You Got It!</h3>
+            <p id="reward-text" class="text-slate-600 mb-6">You earned a golden star for blending those sounds like a pro!</p>
+            <button onclick="closeRewardModal()" class="bg-amber-500 text-white font-bold px-6 py-3 rounded-2xl shadow-lg w-full text-lg hover:bg-amber-600 transition">You Got It! 🎉</button>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // 2-Letter Sound Bank for the Matcher Tab
+        const TWO_LETTER_BANK = [
+            { token: 'sh', type: 'digraph', example: 'ship' },
+            { token: 'ch', type: 'digraph', example: 'chop' },
+            { token: 'th', type: 'digraph', example: 'thin' },
+            { token: 'wh', type: 'digraph', example: 'whip' },
+            { token: 'ck', type: 'digraph', example: 'duck' },
+            { token: 'st', type: 'blend', example: 'stop' },
+            { token: 'sl', type: 'blend', example: 'slip' },
+            { token: 'fl', type: 'blend', example: 'flag' },
+            { token: 'cr', type: 'blend', example: 'crab' },
+            { token: 'dr', type: 'blend', example: 'drum' }
+        ];
+
+        // --- PRE-RECORDED VOICE (audio/*.mp3, made by tools/generate_audio.py) ---
+        // Clip names: sound-<token> (isolated phonics sound), hint-<token> ("shh, as in ship"),
+        // word-<word>, and sentences/phrases as lowercase-hyphenated text.
+        const audioBuffers = {};
+        const audioLoads = {};
+        let sharedAudioCtx = null;
+        let currentSource = null;
+        let playToken = 0;
+
+        function getAudioContext() {
+            if (!sharedAudioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                sharedAudioCtx = new AudioCtx();
+            }
+            if (sharedAudioCtx.state === 'suspended') {
+                sharedAudioCtx.resume();
+            }
+            return sharedAudioCtx;
+        }
+
+        function clipName(text) {
+            return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        }
+
+        function wordClip(word) {
+            return 'word-' + clipName(word);
+        }
+
+        function loadClip(name) {
+            if (!audioLoads[name]) {
+                audioLoads[name] = fetch(`audio/${name}.mp3`)
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Missing audio: ${name}`);
+                        return res.arrayBuffer();
+                    })
+                    .then(data => new Promise((resolve, reject) => getAudioContext().decodeAudioData(data, resolve, reject)))
+                    .then(buffer => (audioBuffers[name] = buffer))
+                    .catch(err => {
+                        console.warn(err);
+                        delete audioLoads[name];
+                        return null;
+                    });
+            }
+            return audioLoads[name];
+        }
+
+        function stopAudio() {
+            playToken++;
+            if (currentSource) {
+                try { currentSource.stop(); } catch (e) {}
+                currentSource = null;
+            }
+        }
+
+        function startBuffer(buffer) {
+            const ctx = getAudioContext();
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+            currentSource = source;
+        }
+
+        // Play one clip, cutting off anything already playing
+        async function playClip(name) {
+            stopAudio();
+            const token = playToken;
+            const buffer = audioBuffers[name] || await loadClip(name);
+            if (buffer && token === playToken) startBuffer(buffer);
+        }
+
+        // Play clips back to back (word by word, sound by sound); a new tap cancels the rest
+        async function playClipSequence(names, gapMs = 150, onEach) {
+            stopAudio();
+            const token = playToken;
+            for (let i = 0; i < names.length; i++) {
+                const buffer = audioBuffers[names[i]] || await loadClip(names[i]);
+                if (token !== playToken) return;
+                if (onEach) onEach(i);
+                if (!buffer) continue;
+                startBuffer(buffer);
+                await new Promise(r => setTimeout(r, buffer.duration * 1000 + gapMs));
+                if (token !== playToken) return;
+            }
+            if (onEach) onEach(-1);
+        }
+
+        // Shuffle helper (Fisher-Yates)
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // Confetti Celebration Burst
+        function popConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 110,
+                    spread: 80,
+                    origin: { y: 0.6 },
+                    colors: ['#ec4899', '#8b5cf6', '#f59e0b', '#10b981', '#06b6d4']
+                });
+            }
+        }
+
+        function triggerYouGotIt() {
+            popConfetti();
+            addStar();
+            playClip('you-got-it');
+        }
+
+        function playSoundToken(token) {
+            playClip('sound-' + token.toLowerCase().trim());
+        }
+
+        // --- EXPANDED CURRICULUM & SENTENCE BANK ---
+        const curriculumLevels = [
+            {
+                name: "Short Vowels (A, E, I)",
+                words: [
+                    { word: "cat", phonemes: ["c", "a", "t"] },
+                    { word: "hat", phonemes: ["h", "a", "t"] },
+                    { word: "sat", phonemes: ["s", "a", "t"] },
+                    { word: "mat", phonemes: ["m", "a", "t"] },
+                    { word: "pan", phonemes: ["p", "a", "n"] },
+                    { word: "bed", phonemes: ["b", "e", "d"] },
+                    { word: "net", phonemes: ["n", "e", "t"] },
+                    { word: "red", phonemes: ["r", "e", "d"] },
+                    { word: "pig", phonemes: ["p", "i", "g"] },
+                    { word: "fin", phonemes: ["f", "i", "n"] },
+                    { word: "zip", phonemes: ["z", "i", "p"] }
+                ]
+            },
+            {
+                name: "Action CVC (O & U)",
+                words: [
+                    { word: "dog", phonemes: ["d", "o", "g"] },
+                    { word: "run", phonemes: ["r", "u", "n"] },
+                    { word: "hop", phonemes: ["h", "o", "p"] },
+                    { word: "jog", phonemes: ["j", "o", "g"] },
+                    { word: "sun", phonemes: ["s", "u", "n"] },
+                    { word: "mop", phonemes: ["m", "o", "p"] },
+                    { word: "pot", phonemes: ["p", "o", "t"] },
+                    { word: "bug", phonemes: ["b", "u", "g"] },
+                    { word: "hug", phonemes: ["h", "u", "g"] },
+                    { word: "cup", phonemes: ["c", "u", "p"] },
+                    { word: "mud", phonemes: ["m", "u", "d"] }
+                ]
+            },
+            {
+                name: "Digraphs SH & CK",
+                words: [
+                    { word: "ship", phonemes: ["sh", "i", "p"] },
+                    { word: "shop", phonemes: ["sh", "o", "p"] },
+                    { word: "shed", phonemes: ["sh", "e", "d"] },
+                    { word: "shut", phonemes: ["sh", "u", "t"] },
+                    { word: "fish", phonemes: ["f", "i", "sh"] },
+                    { word: "wish", phonemes: ["w", "i", "sh"] },
+                    { word: "cash", phonemes: ["c", "a", "sh"] },
+                    { word: "dish", phonemes: ["d", "i", "sh"] },
+                    { word: "rush", phonemes: ["r", "u", "sh"] },
+                    { word: "duck", phonemes: ["d", "u", "ck"] },
+                    { word: "sock", phonemes: ["s", "o", "ck"] },
+                    { word: "rock", phonemes: ["r", "o", "ck"] }
+                ]
+            },
+            {
+                name: "Digraphs CH, TH & WH",
+                words: [
+                    { word: "chop", phonemes: ["ch", "o", "p"] },
+                    { word: "chat", phonemes: ["ch", "a", "t"] },
+                    { word: "chin", phonemes: ["ch", "i", "n"] },
+                    { word: "chip", phonemes: ["ch", "i", "p"] },
+                    { word: "much", phonemes: ["m", "u", "ch"] },
+                    { word: "rich", phonemes: ["r", "i", "ch"] },
+                    { word: "thin", phonemes: ["th", "i", "n"] },
+                    { word: "thud", phonemes: ["th", "u", "d"] },
+                    { word: "bath", phonemes: ["b", "a", "th"] },
+                    { word: "math", phonemes: ["m", "a", "th"] },
+                    { word: "path", phonemes: ["p", "a", "th"] },
+                    { word: "that", phonemes: ["th", "a", "t"] },
+                    { word: "whip", phonemes: ["wh", "i", "p"] },
+                    { word: "when", phonemes: ["wh", "e", "n"] }
+                ]
+            },
+            {
+                name: "2-Letter Blends (ST, SL, FL, CR, DR)",
+                words: [
+                    { word: "stop", phonemes: ["st", "o", "p"] },
+                    { word: "step", phonemes: ["st", "e", "p"] },
+                    { word: "slip", phonemes: ["sl", "i", "p"] },
+                    { word: "sled", phonemes: ["sl", "e", "d"] },
+                    { word: "flag", phonemes: ["fl", "a", "g"] },
+                    { word: "flip", phonemes: ["fl", "i", "p"] },
+                    { word: "crab", phonemes: ["cr", "a", "b"] },
+                    { word: "crib", phonemes: ["cr", "i", "b"] },
+                    { word: "drum", phonemes: ["dr", "u", "m"] },
+                    { word: "drop", phonemes: ["dr", "o", "p"] }
+                ]
+            }
+        ];
+
+        // Master Word List for Word Builder Challenge
+        let builderWordList = shuffleArray(curriculumLevels.flatMap(l => l.words));
+
+        // Greatly Expanded Decodable Sentence Bank with Categories
+        const sentenceBank = [
+            // CVC Short Vowels
+            { category: 'cvc', sentence: ["See", "dog", "run."] },
+            { category: 'cvc', sentence: ["Go", "dog", "go!"] },
+            { category: 'cvc', sentence: ["Cat", "sat", "on", "a", "hat."] },
+            { category: 'cvc', sentence: ["Rat", "sat", "on", "a", "mat."] },
+            { category: 'cvc', sentence: ["Dog", "can", "hop", "in", "sun."] },
+            { category: 'cvc', sentence: ["Big", "pig", "is", "in", "mud."] },
+            { category: 'cvc', sentence: ["Red", "bug", "is", "on", "bed."] },
+            { category: 'cvc', sentence: ["Mom", "had", "a", "hot", "cup."] },
+            // Digraphs (sh, ch, th, wh, ck)
+            { category: 'digraphs', sentence: ["Fish", "is", "in", "the", "ship."] },
+            { category: 'digraphs', sentence: ["Chop", "that", "thin", "log."] },
+            { category: 'digraphs', sentence: ["Duck", "sat", "on", "a", "rock."] },
+            { category: 'digraphs', sentence: ["She", "had", "a", "red", "dish."] },
+            { category: 'digraphs', sentence: ["I", "wish", "for", "a", "fish."] },
+            { category: 'digraphs', sentence: ["Dog", "got", "in", "the", "bath."] },
+            { category: 'digraphs', sentence: ["That", "moth", "is", "on", "path."] },
+            { category: 'digraphs', sentence: ["Rich", "cat", "had", "much", "cash."] },
+            { category: 'digraphs', sentence: ["Shut", "the", "big", "red", "shed."] },
+            // 2-Letter Blends (st, sl, fl, cr, dr)
+            { category: 'blends', sentence: ["Stop", "that", "big", "red", "crab."] },
+            { category: 'blends', sentence: ["Hop", "on", "the", "fast", "sled."] },
+            { category: 'blends', sentence: ["Frog", "can", "flip", "and", "hop."] },
+            { category: 'blends', sentence: ["Do", "not", "drop", "that", "drum."] },
+            { category: 'blends', sentence: ["See", "the", "big", "red", "flag."] },
+            { category: 'blends', sentence: ["Do", "not", "slip", "in", "mud."] }
+        ];
+
+        // State variables
+        let starCount = 0;
+        let sentenceFilter = 'all';
+        let filteredSentenceQueue = shuffleArray(sentenceBank);
+        let currentSentenceIdx = 0;
+        let currentSentenceObj = filteredSentenceQueue[0];
+        let userBuiltSentence = [];
+        let freeBuildTokens = [];
+        let builderMode = 'challenge';
+        let builderChallengeIdx = 0;
+
+        // 2-Letter Matcher State
+        let matcherFilter = 'digraphs';
+        let currentMatcherTarget = TWO_LETTER_BANK[0];
+        let currentMatcherChoices = [];
+
+        // --- INIT & BACKGROUND PRE-WARMING ---
+        window.onload = async function() {
+            // Unlock Web Audio Context on first pointer interaction for zero-latency playback
+            document.addEventListener('pointerdown', () => getAudioContext(), { once: true });
+
+            initFreeBuildPalette();
+            initMatcherExploreBar();
+            loadNewMatcherRound(false);
+            loadBuilderChallenge();
+            loadNewSentence(false);
+
+            // Preload every recorded clip (~1 MB) so each tap plays instantly
+            const badge = document.getElementById('audio-status');
+            try {
+                const names = await (await fetch('audio/manifest.json')).json();
+                const queue = [...names];
+                const worker = async () => {
+                    while (queue.length) await loadClip(queue.shift());
+                };
+                await Promise.all(Array.from({ length: 6 }, worker));
+                badge.innerText = "✅ Voices Ready";
+                badge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-400";
+            } catch (e) {
+                // Clips still load on demand when tapped
+                badge.classList.add('hidden');
+            }
+        };
+
+        function switchTab(tab) {
+            const tabs = {
+                sentence: document.getElementById('tab-sentence'),
+                matcher: document.getElementById('tab-matcher'),
+                freebuild: document.getElementById('tab-freebuild')
+            };
+            const navs = {
+                sentence: document.getElementById('nav-sentence'),
+                matcher: document.getElementById('nav-matcher'),
+                freebuild: document.getElementById('nav-freebuild')
+            };
+
+            Object.keys(tabs).forEach(k => {
+                tabs[k].classList.add('hidden');
+                navs[k].className = "bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm";
+            });
+
+            tabs[tab].classList.remove('hidden');
+            navs[tab].className = "bg-purple-800 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition text-sm";
+        }
+
+        // --- TAB 0: 2-LETTER SOUND MATCHER LOGIC ---
+        function setMatcherFilter(filter) {
+            matcherFilter = filter;
+            const btns = {
+                digraphs: document.getElementById('match-filter-digraphs'),
+                blends: document.getElementById('match-filter-blends'),
+                all: document.getElementById('match-filter-all')
+            };
+            Object.keys(btns).forEach(k => {
+                btns[k].className = k === filter
+                    ? "px-4 py-2 rounded-xl font-bold text-sm bg-purple-800 text-white shadow"
+                    : "px-4 py-2 rounded-xl font-bold text-sm text-purple-950 hover:bg-purple-200";
+            });
+            loadNewMatcherRound(true);
+        }
+
+        function getFilteredTwoLetterPool() {
+            if (matcherFilter === 'digraphs') return TWO_LETTER_BANK.filter(x => x.type === 'digraph');
+            if (matcherFilter === 'blends') return TWO_LETTER_BANK.filter(x => x.type === 'blend');
+            return TWO_LETTER_BANK;
+        }
+
+        function loadNewMatcherRound(autoPlay = true) {
+            const pool = getFilteredTwoLetterPool();
+            const shuffledPool = shuffleArray(pool);
+            currentMatcherTarget = shuffledPool[0];
+
+            // Pick 3 other random distractors for a 4-card grid
+            const distractors = shuffleArray(
+                TWO_LETTER_BANK.filter(x => x.token !== currentMatcherTarget.token)
+            ).slice(0, 3);
+
+            currentMatcherChoices = shuffleArray([currentMatcherTarget, ...distractors]);
+
+            const feedbackEl = document.getElementById('matcher-feedback');
+            feedbackEl.innerText = "Listen and tap the matching 2-letter team!";
+            feedbackEl.className = "text-xl font-bold text-purple-900 min-h-[32px] mb-4 text-center";
+
+            renderMatcherChoices();
+            if (autoPlay) {
+                playMatcherPrompt();
+            }
+        }
+
+        function renderMatcherChoices() {
+            const container = document.getElementById('matcher-choices');
+            container.innerHTML = '';
+
+            currentMatcherChoices.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = "bouncy-btn bg-amber-50 hover:bg-amber-100 border-4 border-slate-900 text-slate-950 font-bold py-5 px-4 rounded-3xl shadow-md text-4xl md:text-5xl flex flex-col items-center justify-center transition";
+                btn.innerHTML = `
+                    <span>${item.token}</span>
+                    <span class="text-xs font-bold text-slate-700 mt-1.5 uppercase tracking-wider">${item.type === 'digraph' ? 'Digraph Team' : '2-Letter Blend'}</span>
+                `;
+                btn.onpointerdown = () => checkMatcherChoice(item, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function playMatcherPrompt() {
+            playSoundToken(currentMatcherTarget.token);
+            document.getElementById('matcher-feedback').innerText = `Which 2-letter team makes that sound?`;
+        }
+
+        function playMatcherWordExample() {
+            playClip('hint-' + currentMatcherTarget.token);
+            document.getElementById('matcher-feedback').innerText = `Hint: Listen for the start/end sound in "${currentMatcherTarget.example.toUpperCase()}"`;
+        }
+
+        function checkMatcherChoice(selectedItem, btnEl) {
+            const feedbackEl = document.getElementById('matcher-feedback');
+
+            if (selectedItem.token === currentMatcherTarget.token) {
+                btnEl.className = "bouncy-btn bg-emerald-600 border-4 border-emerald-950 text-white font-bold py-5 px-4 rounded-3xl shadow-xl text-4xl md:text-5xl flex flex-col items-center justify-center scale-105 transition";
+                feedbackEl.innerText = `🎉 YES! "${selectedItem.token.toUpperCase()}" as in ${selectedItem.example.toUpperCase()}!`;
+                feedbackEl.className = "text-lg md:text-xl font-bold text-emerald-800 text-center flex-1";
+                playClip('hint-' + selectedItem.token);
+                popConfetti();
+                addStar();
+                setTimeout(() => {
+                    loadNewMatcherRound(true);
+                }, 1500);
+            } else {
+                playSoundToken(selectedItem.token);
+                btnEl.className = "bouncy-btn bg-rose-100 border-4 border-rose-600 text-rose-950 font-bold py-5 px-4 rounded-3xl shadow-sm text-4xl md:text-5xl flex flex-col items-center justify-center opacity-75 transition";
+                feedbackEl.innerText = `That's "${selectedItem.token}" (${selectedItem.example}). Listen again!`;
+                feedbackEl.className = "text-lg md:text-xl font-bold text-rose-800 text-center flex-1";
+            }
+        }
+
+        function initMatcherExploreBar() {
+            const bar = document.getElementById('matcher-explore-bar');
+            bar.innerHTML = '';
+            TWO_LETTER_BANK.forEach(item => {
+                const pill = document.createElement('button');
+                pill.className = "bouncy-btn bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-800 text-cyan-950 font-bold px-3 py-1.5 rounded-xl text-base shadow-sm";
+                pill.innerText = `${item.token} (${item.example})`;
+                pill.onpointerdown = () => playClip('hint-' + item.token);
+                bar.appendChild(pill);
+            });
+        }
+
+        // --- WORD BUILDER WORKSHOP LOGIC (Guided & Free Play) ---
+        function setBuilderMode(mode) {
+            builderMode = mode;
+            const challengeBtn = document.getElementById('mode-challenge-btn');
+            const freeBtn = document.getElementById('mode-free-btn');
+            const challengeBar = document.getElementById('builder-challenge-bar');
+            const checkBtn = document.getElementById('check-word-btn');
+            const titleEl = document.getElementById('builder-title');
+            const subEl = document.getElementById('builder-subtitle');
+
+            clearFreeWord();
+
+            if (mode === 'challenge') {
+                challengeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm bg-teal-800 text-white shadow transition";
+                freeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm text-teal-950 hover:bg-teal-200 transition";
+                challengeBar.classList.remove('hidden');
+                checkBtn.classList.remove('hidden');
+                titleEl.innerText = "Listen & Build the Word!";
+                subEl.innerText = "Match block colors to the 3 boxes below!";
+                loadBuilderChallenge();
+            } else {
+                freeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm bg-teal-800 text-white shadow transition";
+                challengeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm text-teal-950 hover:bg-teal-200 transition";
+                challengeBar.classList.add('hidden');
+                checkBtn.classList.add('hidden');
+                titleEl.innerText = "Free Play Word Builder";
+                subEl.innerText = "Tap any sounds below to invent or spell words!";
+                renderFreeSlots();
+            }
+        }
+
+        function loadBuilderChallenge() {
+            const target = builderWordList[builderChallengeIdx];
+            freeBuildTokens = [];
+            document.getElementById('builder-feedback').innerText = `${target.phonemes.length} sound blocks in this word`;
+            renderFreeSlots();
+        }
+
+        function playBuilderTargetWord() {
+            const target = builderWordList[builderChallengeIdx];
+            playClip(wordClip(target.word));
+        }
+
+        function playBuilderTargetHint() {
+            const target = builderWordList[builderChallengeIdx];
+            playClipSequence(target.phonemes.map(p => 'sound-' + p), 250);
+        }
+
+        function nextBuilderChallenge() {
+            builderChallengeIdx = (builderChallengeIdx + 1) % builderWordList.length;
+            if (builderChallengeIdx === 0) {
+                builderWordList = shuffleArray(builderWordList);
+            }
+            loadBuilderChallenge();
+            playBuilderTargetWord();
+        }
+
+        function initFreeBuildPalette() {
+            const twoLetters = ["sh", "ch", "th", "wh", "ck", "st", "sl", "fl", "cr", "dr"];
+            const vowels = ["a", "e", "i", "o", "u"];
+            const consonants = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "z"];
+
+            // Render high-contrast 2-letter sounds (Blue Box)
+            const digContainer = document.getElementById('palette-digraphs');
+            digContainer.innerHTML = '';
+            twoLetters.forEach(d => {
+                const btn = document.createElement('button');
+                btn.className = "bouncy-btn bg-cyan-200 border-3 border-cyan-900 text-slate-950 font-bold px-3.5 py-2.5 rounded-xl text-2xl shadow-sm hover:bg-cyan-300 transition min-w-[60px]";
+                btn.innerText = d;
+                btn.onpointerdown = (e) => { e.preventDefault(); addFreeToken(d); };
+                digContainer.appendChild(btn);
+            });
+
+            // Render high-contrast vowels (Pink Box)
+            const vowContainer = document.getElementById('palette-vowels');
+            vowContainer.innerHTML = '';
+            vowels.forEach(v => {
+                const btn = document.createElement('button');
+                btn.className = "bouncy-btn bg-rose-200 border-3 border-rose-900 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-2xl md:text-3xl shadow-sm hover:bg-rose-300 transition min-w-[58px]";
+                btn.innerText = v;
+                btn.onpointerdown = (e) => { e.preventDefault(); addFreeToken(v); };
+                vowContainer.appendChild(btn);
+            });
+
+            // Render high-contrast consonants (Yellow Box)
+            const conContainer = document.getElementById('palette-consonants');
+            conContainer.innerHTML = '';
+            consonants.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = "bouncy-btn bg-amber-200 border-3 border-amber-900 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-2xl shadow-sm hover:bg-amber-300 transition min-w-[50px]";
+                btn.innerText = c;
+                btn.onpointerdown = (e) => { e.preventDefault(); addFreeToken(c); };
+                conContainer.appendChild(btn);
+            });
+        }
+
+        function addFreeToken(token) {
+            playSoundToken(token);
+            freeBuildTokens.push(token);
+            renderFreeSlots();
+
+            if (builderMode === 'challenge') {
+                const target = builderWordList[builderChallengeIdx];
+                if (freeBuildTokens.length === target.phonemes.length) {
+                    const isMatch = freeBuildTokens.every((t, i) => t === target.phonemes[i]);
+                    if (isMatch) {
+                        document.getElementById('builder-feedback').innerText = "🌟 Correct! Blending word...";
+                        setTimeout(() => {
+                            playClip(wordClip(target.word));
+                            addStar();
+                            showRewardModal(`You built "${target.word.toUpperCase()}" all by yourself!`);
+                        }, 600);
+                    } else {
+                        document.getElementById('builder-feedback').innerText = "Almost! Tap a block to remove it or try again.";
+                    }
+                }
+            }
+        }
+
+        function removeFreeToken(idx) {
+            freeBuildTokens.splice(idx, 1);
+            renderFreeSlots();
+        }
+
+        function clearFreeWord() {
+            freeBuildTokens = [];
+            if (builderMode === 'challenge') {
+                const target = builderWordList[builderChallengeIdx];
+                document.getElementById('builder-feedback').innerText = `${target.phonemes.length} color-coded sound blocks`;
+            } else {
+                document.getElementById('builder-feedback').innerText = "";
+            }
+            renderFreeSlots();
+        }
+
+        function getPhonemeCategoryStyle(phoneme) {
+            const vowels = ["a", "e", "i", "o", "u"];
+            if (phoneme && phoneme.length > 1) {
+                // Blue / Cyan for 2-Letter Digraphs & Blends
+                return {
+                    label: "2-Letter",
+                    emptyBg: "bg-cyan-100 border-cyan-600 text-cyan-950",
+                    filledBg: "bg-cyan-200 border-cyan-900 text-slate-950"
+                };
+            } else if (vowels.includes(phoneme)) {
+                // Pink / Rose for Short Vowels
+                return {
+                    label: "Vowel",
+                    emptyBg: "bg-rose-100 border-rose-600 text-rose-950",
+                    filledBg: "bg-rose-200 border-rose-900 text-slate-950"
+                };
+            } else {
+                // Yellow / Amber for Consonants
+                return {
+                    label: "Consonant",
+                    emptyBg: "bg-amber-100 border-amber-600 text-amber-950",
+                    filledBg: "bg-amber-200 border-amber-900 text-slate-950"
+                };
+            }
+        }
+
+        function renderFreeSlots() {
+            const container = document.getElementById('free-slots');
+            container.innerHTML = '';
+
+            if (builderMode === 'challenge') {
+                const target = builderWordList[builderChallengeIdx];
+                const totalSlots = Math.max(target.phonemes.length, freeBuildTokens.length);
+                for (let i = 0; i < totalSlots; i++) {
+                    const token = freeBuildTokens[i];
+                    const expectedPhoneme = target.phonemes[i];
+                    if (token) {
+                        const style = getPhonemeCategoryStyle(token);
+                        const chip = document.createElement('button');
+                        chip.className = `free-slot-chip ${style.filledBg} border-4 font-bold px-5 py-2.5 rounded-2xl shadow-md flex items-center space-x-1.5 text-3xl cursor-pointer transform transition hover:scale-105`;
+                        chip.innerHTML = `<span>${token}</span> <span class="text-xs opacity-80 ml-1.5">✖</span>`;
+                        chip.onpointerdown = () => removeFreeToken(i);
+                        container.appendChild(chip);
+                    } else {
+                        const expectedStyle = getPhonemeCategoryStyle(expectedPhoneme);
+                        const emptySlot = document.createElement('div');
+                        emptySlot.className = `w-20 h-16 rounded-2xl border-4 border-dashed ${expectedStyle.emptyBg} flex flex-col items-center justify-center font-bold shadow-inner`;
+                        emptySlot.innerHTML = `
+                            <span class="text-lg leading-none">${i + 1}</span>
+                            <span class="text-[10px] uppercase tracking-wider mt-0.5 font-extrabold">${expectedStyle.label}</span>
+                        `;
+                        container.appendChild(emptySlot);
+                    }
+                }
+                return;
+            }
+
+            if (freeBuildTokens.length === 0) {
+                container.innerHTML = `<span class="text-slate-600 font-bold text-sm">Tap sound tiles in the 3 boxes below to build any word!</span>`;
+                return;
+            }
+
+            freeBuildTokens.forEach((token, idx) => {
+                const style = getPhonemeCategoryStyle(token);
+                const chip = document.createElement('button');
+                chip.className = `free-slot-chip ${style.filledBg} border-4 font-bold px-5 py-2.5 rounded-2xl shadow-md flex items-center space-x-1.5 text-3xl cursor-pointer transform transition hover:scale-105`;
+                chip.innerHTML = `<span>${token}</span> <span class="text-xs opacity-80 ml-1.5">✖</span>`;
+                chip.onpointerdown = () => removeFreeToken(idx);
+                container.appendChild(chip);
+            });
+        }
+
+        function blendFreeWord() {
+            if (freeBuildTokens.length === 0) return;
+            const chips = document.querySelectorAll('.free-slot-chip');
+            // Sound out each block, then say the whole word if it is one we have recorded
+            const clips = freeBuildTokens.map(t => 'sound-' + t).concat(wordClip(freeBuildTokens.join('')));
+            playClipSequence(clips, 250, idx => {
+                chips.forEach(c => c.classList.remove('glow-active', 'scale-110'));
+                if (chips[idx]) chips[idx].classList.add('glow-active', 'scale-110');
+            });
+        }
+
+        function checkBuiltWord() {
+            if (builderMode !== 'challenge') return;
+            const target = builderWordList[builderChallengeIdx];
+            const isMatch = freeBuildTokens.length === target.phonemes.length &&
+                            freeBuildTokens.every((t, i) => t === target.phonemes[i]);
+            if (isMatch) {
+                playClip(wordClip(target.word));
+                addStar();
+                showRewardModal(`Great job! You spelled "${target.word.toUpperCase()}"!`);
+            } else {
+                document.getElementById('builder-feedback').innerText = "Listen closely and check your sound blocks!";
+                playBuilderTargetHint();
+            }
+        }
+
+        // --- SENTENCE BUILDER LOGIC ---
+        function setSentenceFilter(filter) {
+            sentenceFilter = filter;
+            const btns = {
+                all: document.getElementById('sent-filter-all'),
+                cvc: document.getElementById('sent-filter-cvc'),
+                digraphs: document.getElementById('sent-filter-digraphs'),
+                blends: document.getElementById('sent-filter-blends')
+            };
+            Object.keys(btns).forEach(k => {
+                btns[k].className = k === filter
+                    ? "px-4 py-2 rounded-xl font-bold text-sm bg-indigo-800 text-white shadow"
+                    : "px-4 py-2 rounded-xl font-bold text-sm text-indigo-950 hover:bg-indigo-200";
+            });
+
+            const pool = filter === 'all'
+                ? sentenceBank
+                : sentenceBank.filter(s => s.category === filter);
+            filteredSentenceQueue = shuffleArray(pool);
+            currentSentenceIdx = 0;
+            loadNewSentence(true);
+        }
+
+        function loadNewSentence(autoPlay = false) {
+            if (filteredSentenceQueue.length === 0) {
+                filteredSentenceQueue = shuffleArray(sentenceBank);
+            }
+            currentSentenceObj = filteredSentenceQueue[currentSentenceIdx];
+            currentSentenceIdx = (currentSentenceIdx + 1) % filteredSentenceQueue.length;
+            if (currentSentenceIdx === 0) {
+                filteredSentenceQueue = shuffleArray(filteredSentenceQueue);
+            }
+
+            userBuiltSentence = [];
+
+            document.getElementById('sentence-prompt-text').innerText = `Build this ${currentSentenceObj.sentence.length}-word sentence!`;
+            renderSentenceSlots();
+            renderWordBank();
+
+            if (autoPlay) {
+                playTargetSentencePrompt();
+            }
+        }
+
+        function playTargetSentencePrompt() {
+            playClip(clipName(currentSentenceObj.sentence.join(' ')));
+        }
+
+        function playSentenceSlowly() {
+            playClipSequence(currentSentenceObj.sentence.map(wordClip), 250);
+        }
+
+        function renderSentenceSlots() {
+            const container = document.getElementById('sentence-slots');
+            const counter = document.getElementById('sentence-slot-counter');
+            container.innerHTML = '';
+
+            const targetLen = currentSentenceObj.sentence.length;
+            counter.innerText = `${userBuiltSentence.length} of ${targetLen} words`;
+
+            for (let i = 0; i < targetLen; i++) {
+                const word = userBuiltSentence[i];
+                if (word) {
+                    const chip = document.createElement('button');
+                    chip.className = "bouncy-btn bg-purple-800 border-4 border-purple-950 text-white font-bold px-5 py-2.5 rounded-2xl shadow-md flex items-center space-x-2 text-xl md:text-2xl cursor-pointer";
+                    chip.innerHTML = `<span>${word}</span> <span class="text-xs opacity-90 ml-1.5">✖</span>`;
+                    chip.onpointerdown = () => removeWordFromSentence(i);
+                    container.appendChild(chip);
+                } else {
+                    const emptySlot = document.createElement('div');
+                    emptySlot.className = "px-5 py-2.5 min-w-[78px] h-[54px] rounded-2xl border-4 border-dashed border-indigo-400 bg-white flex items-center justify-center text-indigo-800 font-bold text-lg";
+                    emptySlot.innerText = i + 1;
+                    container.appendChild(emptySlot);
+                }
+            }
+        }
+
+        function renderWordBank() {
+            const container = document.getElementById('word-bank');
+            container.innerHTML = '';
+
+            let availableWords = [...currentSentenceObj.sentence];
+            const decoys = shuffleArray(["hop", "cat", "dog", "sun", "hat", "run", "See", "fish", "bath", "duck", "sled", "crab", "ship", "thin", "chop"]);
+            decoys.forEach(d => {
+                if (!availableWords.some(w => w.toLowerCase().replace(/[.!]/g, '') === d.toLowerCase()) && availableWords.length < 8) {
+                    availableWords.push(d);
+                }
+            });
+            availableWords = shuffleArray(availableWords);
+
+            availableWords.forEach(word => {
+                const tile = document.createElement('button');
+                tile.className = "bouncy-btn bg-amber-100 border-4 border-slate-900 text-slate-950 font-bold px-5 py-3 rounded-2xl shadow-sm hover:bg-amber-200 text-xl md:text-2xl transition";
+                tile.innerText = word;
+                tile.onpointerdown = (e) => { e.preventDefault(); addWordToSentence(word); };
+                container.appendChild(tile);
+            });
+        }
+
+        function addWordToSentence(word) {
+            if (userBuiltSentence.length >= currentSentenceObj.sentence.length) return;
+            playClip(wordClip(word));
+            userBuiltSentence.push(word);
+            renderSentenceSlots();
+
+            if (userBuiltSentence.length === currentSentenceObj.sentence.length) {
+                const isCorrect = userBuiltSentence.every((w, i) => w.toLowerCase() === currentSentenceObj.sentence[i].toLowerCase());
+                if (isCorrect) {
+                    setTimeout(() => {
+                        playClip(clipName(currentSentenceObj.sentence.join(' ')));
+                        showRewardModal(`Amazing job! "${currentSentenceObj.sentence.join(' ')}"`);
+                        addStar();
+                        addStar();
+                    }, 550);
+                } else {
+                    document.getElementById('sentence-prompt-text').innerText = "Almost! Tap a purple word to swap it, or listen again.";
+                }
+            }
+        }
+
+        function removeWordFromSentence(index) {
+            userBuiltSentence.splice(index, 1);
+            renderSentenceSlots();
+        }
+
+        function clearSentenceSlots() {
+            userBuiltSentence = [];
+            renderSentenceSlots();
+        }
+
+        function readBuiltSentence() {
+            if (userBuiltSentence.length === 0) return;
+            // A correct sentence has its own natural recording; anything else is read word by word
+            const built = userBuiltSentence.join(' ');
+            if (built.toLowerCase() === currentSentenceObj.sentence.join(' ').toLowerCase()) {
+                playClip(clipName(built));
+            } else {
+                playClipSequence(userBuiltSentence.map(wordClip), 150);
+            }
+        }
+
+        // --- REWARD & STAR SYSTEM ---
+        function addStar() {
+            starCount++;
+            document.getElementById('star-count').innerText = starCount;
+        }
+
+        function showRewardModal(msg) {
+            popConfetti();
+            document.getElementById('reward-text').innerText = msg;
+            document.getElementById('reward-modal').classList.remove('hidden');
+        }
+
+        function closeRewardModal() {
+            popConfetti();
+            document.getElementById('reward-modal').classList.add('hidden');
+            if (!document.getElementById('tab-freebuild').classList.contains('hidden') && builderMode === 'challenge') {
+                nextBuilderChallenge();
+            } else if (!document.getElementById('tab-sentence').classList.contains('hidden')) {
+                loadNewSentence(true);
+            }
+        }
+    </script>
+</body>
+</html>
