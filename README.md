@@ -15,6 +15,13 @@ Isolated phonics sounds (/s/, /m/, short a, "buh"…) are cut out of real words 
 "mud", "at", "bug"), because TTS engines read bare sounds as letter names ("ess") or add stray vowels.
 Continuous sounds are held with no added vowel; stop sounds keep only a short, clipped vowel.
 
+## Pictures
+
+Word Challenge words that can be pictured show a picture so the child knows which word is meant
+("sun", not "son"). Pictures are [Twemoji](https://github.com/jdecked/twemoji) graphics
+(© Twitter, Inc. and other contributors, licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)),
+saved in `images/<word>.svg`. Words that can't be pictured clearly (sat, much, when…) show none.
+
 ## Regenerating the audio
 
 After changing words or sentences in `index.html`:

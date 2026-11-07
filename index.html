@@ -130,10 +130,7 @@
                             </button>
                         </div>
                         <div class="flex flex-wrap gap-2 justify-between pt-1 border-t border-teal-200">
-                            <button id="check-word-btn" onclick="checkBuiltWord()" class="bouncy-btn bg-purple-800 hover:bg-purple-900 text-white font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center space-x-1 text-sm flex-1 justify-center">
-                                <span>✅ Check Word</span>
-                            </button>
-                            <button onclick="clearFreeWord()" class="bouncy-btn bg-slate-200 border-2 border-slate-400 text-slate-900 font-bold px-3.5 py-2 rounded-xl text-sm hover:bg-slate-300 transition">
+                            <button onclick="clearFreeWord()" class="bouncy-btn bg-slate-200 border-2 border-slate-400 text-slate-900 font-bold px-3.5 py-2 rounded-xl text-sm hover:bg-slate-300 transition flex-1">
                                 Clear 🗑️
                             </button>
                         </div>
@@ -145,8 +142,14 @@
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Your Word Blocks (Tap a block to remove):</span>
                             <span id="builder-feedback" class="text-sm font-bold text-teal-900"></span>
                         </div>
-                        <div id="free-slots" class="flex flex-wrap justify-center gap-3 min-h-[96px] bg-slate-100 border-4 border-dashed border-slate-300 rounded-2xl p-2.5 items-center">
-                            <!-- Injected via JS -->
+                        <div class="flex gap-3 items-stretch">
+                            <!-- Picture of the target word (tap to hear it) -->
+                            <button id="builder-picture" onpointerdown="playBuilderTargetWord()" class="bouncy-btn hidden shrink-0 w-24 md:w-28 bg-white border-4 border-teal-400 rounded-2xl p-2 shadow-sm" aria-label="Hear the word">
+                                <img id="builder-picture-img" src="" alt="" class="w-full h-full object-contain">
+                            </button>
+                            <div id="free-slots" class="flex-1 flex flex-wrap justify-center gap-3 min-h-[96px] bg-slate-100 border-4 border-dashed border-slate-300 rounded-2xl p-2.5 items-center">
+                                <!-- Injected via JS -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -243,6 +246,10 @@
         </section>
 
     </main>
+
+    <footer class="text-center text-xs text-slate-500 py-3">
+        Pictures: <a class="underline" href="https://github.com/jdecked/twemoji" target="_blank" rel="noopener">Twemoji</a>, CC-BY 4.0
+    </footer>
 
     <!-- Custom Success / Reward Modal -->
     <div id="reward-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
@@ -476,6 +483,10 @@
             }
         ];
 
+        // Builder words with a picture in images/<word>.svg (Twemoji, CC-BY 4.0). Words that
+        // can't be pictured clearly (sat, much, when...) show no picture rather than a misleading one.
+        const WORD_PICTURES = new Set("cat hat pan bed net red pig fin zip dog run hop jog sun pot bug hug cup ship shop shed shut fish wish cash dish duck sock rock chop chat rich bath math stop step sled flag flip crab drum drop".split(' '));
+
         // Master Word List for Word Builder Challenge
         let builderWordList = shuffleArray(curriculumLevels.flatMap(l => l.words));
 
@@ -683,7 +694,6 @@
             const challengeBtn = document.getElementById('mode-challenge-btn');
             const freeBtn = document.getElementById('mode-free-btn');
             const challengeBar = document.getElementById('builder-challenge-bar');
-            const checkBtn = document.getElementById('check-word-btn');
             const titleEl = document.getElementById('builder-title');
             const subEl = document.getElementById('builder-subtitle');
 
@@ -693,7 +703,6 @@
                 challengeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm bg-teal-800 text-white shadow transition";
                 freeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm text-teal-950 hover:bg-teal-200 transition";
                 challengeBar.classList.remove('hidden');
-                checkBtn.classList.remove('hidden');
                 titleEl.innerText = "Listen & Build the Word!";
                 subEl.innerText = "Match block colors to the 3 boxes below!";
                 loadBuilderChallenge();
@@ -701,7 +710,7 @@
                 freeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm bg-teal-800 text-white shadow transition";
                 challengeBtn.className = "px-4 py-1 rounded-lg font-bold text-xs md:text-sm text-teal-950 hover:bg-teal-200 transition";
                 challengeBar.classList.add('hidden');
-                checkBtn.classList.add('hidden');
+                showBuilderPicture(null);
                 titleEl.innerText = "Free Play Word Builder";
                 subEl.innerText = "Tap any sounds below to invent or spell words!";
                 renderFreeSlots();
@@ -712,7 +721,20 @@
             const target = builderWordList[builderChallengeIdx];
             freeBuildTokens = [];
             document.getElementById('builder-feedback').innerText = `${target.phonemes.length} sound blocks in this word`;
+            showBuilderPicture(target.word);
             renderFreeSlots();
+        }
+
+        function showBuilderPicture(word) {
+            const box = document.getElementById('builder-picture');
+            const img = document.getElementById('builder-picture-img');
+            if (word && WORD_PICTURES.has(word)) {
+                img.src = `images/${word}.svg`;  // alt stays empty: showing the spelling would give the answer away
+                box.classList.remove('hidden');
+            } else {
+                img.removeAttribute('src');
+                box.classList.add('hidden');
+            }
         }
 
         function playBuilderTargetWord() {
@@ -895,20 +917,6 @@
             });
         }
 
-        function checkBuiltWord() {
-            if (builderMode !== 'challenge') return;
-            const target = builderWordList[builderChallengeIdx];
-            const isMatch = freeBuildTokens.length === target.phonemes.length &&
-                            freeBuildTokens.every((t, i) => t === target.phonemes[i]);
-            if (isMatch) {
-                playClip(wordClip(target.word));
-                addStar();
-                showRewardModal(`Great job! You spelled "${target.word.toUpperCase()}"!`);
-            } else {
-                document.getElementById('builder-feedback').innerText = "Listen closely and check your sound blocks!";
-                playBuilderTargetHint();
-            }
-        }
 
         // --- SENTENCE BUILDER LOGIC ---
         function setSentenceFilter(filter) {
