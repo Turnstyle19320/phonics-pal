@@ -5,6 +5,7 @@ Each sound comes from a source word and a cut rule:
   "cv"     - the consonant(s) plus a short clipped vowel (b + "uh" from "bug")
   "vowel"  - the vowel of a vowel-first word, before the closing consonant (a from "at")
   "coda"   - the voiced tail after an initial voiceless consonant (rrr from "fur")
+  "noise"  - a clean breath with the tone of a faint sound (f from "off", th from "bath")
 """
 import subprocess
 import numpy as np
@@ -16,7 +17,7 @@ WIN = int(0.03 * SR)
 CUTS = {
     "a": ("at", "vowel"), "e": ("etch", "vowel"), "i": ("itch", "vowel"),
     "o": ("ox", "vowel"), "u": ("up", "vowel"),
-    "s": ("sun", "onset"), "f": ("fun", "onset"), "sh": ("shut", "onset"), "th": ("thumb", "onset"),
+    "s": ("sun", "onset"), "f": ("off", "noise"), "sh": ("shut", "onset"), "th": ("bath", "noise"),
     "m": ("mud", "onset"), "n": ("nut", "onset"), "l": ("lull", "onset"), "v": ("van", "onset"),
     "z": ("zap", "onset"), "r": ("fur", "coda"),
     "b": ("bug", "cv"), "c": ("cup", "cv"), "k": ("cup", "cv"), "ck": ("cup", "cv"),
@@ -69,7 +70,41 @@ def fade(a, fin=0.01, fout=0.04):
     return a
 
 
+def shaped_noise(a, seconds=0.55, level=0.09):
+    """A steady breath with the measured tone of the longest fricative in `a`.
+
+    f and th are 30-40 dB quieter than vowels, so amplifying or stretching them
+    brings up compression noise. Only their average spectrum is kept, and they
+    stay softer than s and sh, as they are in speech.
+    """
+    rms, per, zcr, low = frames(a)
+    mask = (zcr > 2500) & (per < 0.55) & (rms > 0.004 * rms.max())
+    best, i = (0, 0), 0
+    while i < len(mask):
+        j = i
+        while j < len(mask) and mask[j]:
+            j += 1
+        if j - i > best[1] - best[0]:
+            best = (i, j)
+        i = max(j, i + 1)
+    seg = a[best[0] * HOP:(best[0] + int((best[1] - best[0]) * 0.8)) * HOP]
+    n = 512
+    if len(seg) < n * 2:
+        raise ValueError(f"fricative too short to measure: {len(seg) / SR:.3f}s")
+    power = np.mean([np.abs(np.fft.rfft(seg[s:s + n] * np.hanning(n))) ** 2
+                     for s in range(0, len(seg) - n, n // 4)], axis=0)
+    power = np.convolve(power, np.ones(15) / 15, "same")  # smooth away compression artifacts
+    size = int(seconds * SR)
+    spec = np.fft.rfft(np.random.default_rng(7).standard_normal(size))
+    freqs = np.fft.rfftfreq(size, 1 / SR)
+    gain = np.sqrt(np.interp(freqs, np.fft.rfftfreq(n, 1 / SR), power)) * (freqs > 800)
+    out = np.fft.irfft(spec * gain, size).astype(np.float32)
+    return fade(out * level / np.sqrt(np.mean(out ** 2)), 0.04, 0.12)
+
+
 def cut(a, rule):
+    if rule == "noise":
+        return shaped_noise(a)
     rms, per, zcr, low = frames(a)
     top = rms.max()
     start = int(np.argmax(rms > 0.006 * top))
@@ -84,6 +119,8 @@ def cut(a, rule):
         start += int(np.argmax(rms[start:v0] > 0.25 * typical))
     if rule == "onset":
         seg = a[start * HOP:v0 * HOP]
+        if len(seg) / SR < 0.05:
+            raise ValueError(f"consonant cut too short: {len(seg) / SR:.3f}s")
         return fade(stretch(seg, 0.55), 0.02, 0.08)
     if rule == "cv":
         return fade(a[start * HOP:(v0 + 9) * HOP], 0.005, 0.05)

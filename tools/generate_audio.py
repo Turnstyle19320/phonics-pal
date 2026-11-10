@@ -10,9 +10,10 @@ sounds as letter names ("ess", "eff") or adds stray vowels.
 Setup:
   brew install ffmpeg
   python3 -m venv venv && ./venv/bin/pip install edge-tts soundfile numpy
-  ./venv/bin/python tools/generate_audio.py
+  ./venv/bin/python tools/generate_audio.py              # everything
+  ./venv/bin/python tools/generate_audio.py sound-f hint-th   # only these clips
 """
-import asyncio, json, os, re, subprocess, tempfile
+import asyncio, json, os, re, subprocess, sys, tempfile
 import edge_tts
 import numpy as np
 import soundfile as sf
@@ -63,8 +64,9 @@ def trim(audio, pad=0.12, thresh=0.005):
     return audio[max(0, loud[0] - int(pad * SR)):min(len(audio), loud[-1] + int(pad * SR))]
 
 
-def save(audio, name):
-    audio = audio / max(1e-6, np.max(np.abs(audio))) * 0.9
+def save(audio, name, normalize=True):
+    if normalize:
+        audio = audio / max(1e-6, np.max(np.abs(audio))) * 0.9
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         sf.write(tmp.name, audio, SR)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-ac", "1",
@@ -112,18 +114,24 @@ async def edge_word(word, rate="-10%"):
     return audio[start:int((offset + duration + 0.1) * SR)]
 
 
-async def main():
+async def main(only=()):
     os.makedirs(OUT, exist_ok=True)
+    wanted = lambda name: not only or name in only
     names = []
     sounds = {}
     for token, (word, rule) in CUTS.items():
         sounds[token] = cut(await edge(f"{word}.", raw=True), rule)
-        save(sounds[token], f"sound-{token}")
+        if wanted(f"sound-{token}"):
+            save(sounds[token], f"sound-{token}", normalize=rule != "noise")
         names.append(f"sound-{token}")
     for token, example in TWO_LETTER_EXAMPLES.items():
-        gap = np.zeros(int(0.25 * SR), np.float32)
-        save(np.concatenate([sounds[token], gap, await edge(f"as in {example}.")]), f"hint-{token}")
+        if wanted(f"hint-{token}"):
+            gap = np.zeros(int(0.25 * SR), np.float32)
+            save(np.concatenate([sounds[token], gap, await edge(f"as in {example}.")]), f"hint-{token}")
         names.append(f"hint-{token}")
+    if only:
+        print(f"re-rendered {len(only)} clips")
+        return
 
     words, sentences = page_text()
     sem = asyncio.Semaphore(6)
@@ -141,4 +149,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(set(sys.argv[1:])))
