@@ -17,6 +17,21 @@ Continuous sounds are held with no added vowel; stop sounds keep only a short, c
 /f/ and /th/ are so faint that amplifying a cut adds noise, so they are a clean breath built from the
 measured tone of Aria's "off" and "bath".
 
+## Fill the Blank
+
+The child reads a sentence with a missing word ("The ___ can nap on the mat.") and picks the word that
+makes sense from three that look alike: **cat** / cot / cut. Because the wrong choices differ by one
+letter, the child has to read every letter rather than guess from the first letter or a picture; a
+wrong choice only stops making sense once it has been read. Following structured-literacy practice:
+
+- Sentences use short-vowel words plus a few common sight words (the, a, is, from…).
+- "Hear Sentence" says "blank" for the gap, so listening never gives the answer away.
+- Choices are silent until picked. A wrong pick says the word it is ("That says cot") and locks.
+- A star is awarded only for a first-try answer, so reading pays off and tapping everything doesn't.
+
+Sentences live in `fillBank` in `index.html` (answer first). After adding some, run
+`tools/generate_audio.py --missing` to record only the new clips.
+
 ## Pictures
 
 Word Challenge words that can be pictured show a picture so the child knows which word is meant

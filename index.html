@@ -45,6 +45,7 @@
             <button onclick="switchTab('sentence')" id="nav-sentence" class="bg-purple-800 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition text-sm">📖 Sentences</button>
             <button onclick="switchTab('matcher')" id="nav-matcher" class="bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm">🎯 2-Letter Match</button>
             <button onclick="switchTab('freebuild')" id="nav-freebuild" class="bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm">🧱 Build Words</button>
+            <button onclick="switchTab('fill')" id="nav-fill" class="bg-purple-100 text-purple-950 border-2 border-purple-300 font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition hover:bg-purple-200 text-sm">✏️ Fill the Blank</button>
         </div>
     </header>
 
@@ -250,6 +251,38 @@
                     <button onclick="clearSentenceSlots()" class="bouncy-btn bg-slate-200 border-2 border-slate-400 text-slate-900 font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-slate-300 transition text-lg">
                         Clear 🗑️
                     </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: FILL THE BLANK (read the choices, pick the one that makes sense) -->
+        <section id="tab-fill" class="hidden flex flex-col items-center w-full">
+            <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 bg-white/80 px-4 py-2 rounded-2xl border border-sky-200">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">Fill the Blank!</h2>
+                    <p class="text-slate-600 text-xs md:text-sm font-medium">Read the sentence, then read each word. Which one makes sense?</p>
+                </div>
+                <span id="fill-counter" class="text-xs font-bold text-sky-900"></span>
+            </div>
+
+            <div class="bg-white border-4 border-sky-400 rounded-3xl p-4 md:p-5 w-full shadow-lg flex flex-col items-center">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 w-full bg-sky-50 p-3 rounded-2xl border-2 border-sky-200">
+                    <button onpointerdown="playFillSentence()" class="bouncy-btn bg-sky-800 hover:bg-sky-900 text-white font-bold px-5 py-3 rounded-2xl shadow-md text-lg flex items-center space-x-2 transition">
+                        <span>🔊 Hear Sentence</span>
+                    </button>
+                    <p id="fill-feedback" class="text-lg md:text-xl font-bold text-sky-950 text-center w-full order-last md:order-none md:w-auto md:flex-1"></p>
+                    <button onclick="loadFillRound()" class="bouncy-btn text-base font-bold text-sky-950 bg-white px-4 py-3 rounded-2xl shadow-sm hover:bg-sky-100 transition border-2 border-sky-300">
+                        <span>🎲 Next Sentence</span>
+                    </button>
+                </div>
+
+                <p class="text-3xl md:text-5xl font-bold text-slate-950 text-center leading-relaxed py-6 md:py-8">
+                    <span id="fill-before"></span>
+                    <span id="fill-blank" class="inline-block min-w-[3.5em] border-b-[6px] border-sky-500 text-emerald-700 align-baseline px-2">&nbsp;</span><span id="fill-after"></span>
+                </p>
+
+                <div id="fill-choices" class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                    <!-- Injected via JS -->
                 </div>
             </div>
         </section>
@@ -556,6 +589,7 @@
             loadNewMatcherRound(false);
             loadBuilderChallenge();
             loadNewSentence(false);
+            loadFillRound();
 
             // Preload every recorded clip (~1 MB) so each tap plays instantly
             const badge = document.getElementById('audio-status');
@@ -578,12 +612,14 @@
             const tabs = {
                 sentence: document.getElementById('tab-sentence'),
                 matcher: document.getElementById('tab-matcher'),
-                freebuild: document.getElementById('tab-freebuild')
+                freebuild: document.getElementById('tab-freebuild'),
+                fill: document.getElementById('tab-fill')
             };
             const navs = {
                 sentence: document.getElementById('nav-sentence'),
                 matcher: document.getElementById('nav-matcher'),
-                freebuild: document.getElementById('nav-freebuild')
+                freebuild: document.getElementById('nav-freebuild'),
+                fill: document.getElementById('nav-fill')
             };
 
             Object.keys(tabs).forEach(k => {
@@ -1097,6 +1133,112 @@
                 playClip(clipName(built));
             } else {
                 playClipSequence(userBuiltSentence.map(wordClip), 150);
+            }
+        }
+
+        // --- FILL THE BLANK LOGIC ---
+        // First choice is the answer. The wrong choices look like it, so the child has to read
+        // every letter to choose; a wrong choice only stops making sense once it has been read.
+        const fillBank = [
+            { before: "The", after: "can nap on the mat.", choices: ["cat", "cot", "cut"] },
+            { before: "Dad has a red", after: "on.", choices: ["hat", "hot", "hit"] },
+            { before: "The ham is in the", after: ".", choices: ["pan", "pen", "pin"] },
+            { before: "I can nap on the", after: ".", choices: ["bed", "bad", "bid"] },
+            { before: "The", after: "sat on ten eggs.", choices: ["hen", "pen", "den"] },
+            { before: "A fish got in the", after: ".", choices: ["net", "nut", "not"] },
+            { before: "The fat", after: "ran in the mud.", choices: ["pig", "peg", "pin"] },
+            { before: "A fish has a", after: ".", choices: ["fin", "fan", "fun"] },
+            { before: "Sam can", after: "up his bag.", choices: ["zip", "zap", "sip"] },
+            { before: "The", after: "dug a pit.", choices: ["dog", "dig", "dot"] },
+            { before: "I can", after: "up the mud.", choices: ["mop", "map", "mob"] },
+            { before: "A", after: "can hop on a log.", choices: ["frog", "fog", "flag"] },
+            { before: "It is hot in the", after: ".", choices: ["sun", "run", "fun"] },
+            { before: "I can sip from a", after: ".", choices: ["cup", "cap", "cop"] },
+            { before: "The pig is in the", after: ".", choices: ["mud", "mad", "mid"] },
+            { before: "A", after: "has six legs.", choices: ["bug", "big", "bag"] },
+            { before: "Six men can fish on the", after: ".", choices: ["ship", "shop", "chip"] },
+            { before: "A", after: "can swim.", choices: ["fish", "dish", "wish"] },
+            { before: "A", after: "can quack.", choices: ["duck", "dock", "deck"] },
+            { before: "Sam has a red", after: "on his leg.", choices: ["sock", "sack", "sick"] },
+            { before: "Sam got wet in the", after: ".", choices: ["bath", "math", "moth"] },
+            { before: "Sam can", after: "the log with an ax.", choices: ["chop", "shop", "ship"] },
+            { before: "Mom set the ham on a", after: ".", choices: ["dish", "fish", "wish"] },
+            { before: "Sam is not fat. Sam is", after: ".", choices: ["thin", "then", "this"] },
+            { before: "A", after: "can snap at a fish.", choices: ["crab", "crib", "cab"] },
+            { before: "I can tap on a", after: ".", choices: ["drum", "drop", "drip"] },
+            { before: "A tot can nap in a", after: ".", choices: ["crib", "crab", "crop"] },
+            { before: "The bus can", after: "to let us get off.", choices: ["stop", "step", "stem"] },
+            { before: "Sam sat on the", after: "and went fast.", choices: ["sled", "slid", "slim"] },
+            { before: "Sam can hang the red", after: "up.", choices: ["flag", "flat", "flip"] }
+        ];
+
+        let fillQueue = shuffleArray(fillBank);
+        let fillIdx = -1;
+        let fillCurrent = null;
+        let fillSolved = false;
+        let fillMissed = false;
+
+        function fillSentenceText(item, word) {
+            const gap = /^[.!?]/.test(item.after) ? '' : ' ';
+            return `${item.before} ${word}${gap}${item.after}`.trim();
+        }
+
+        function loadFillRound() {
+            stopAudio();
+            fillIdx++;
+            if (fillIdx >= fillQueue.length) {
+                fillQueue = shuffleArray(fillBank);
+                fillIdx = 0;
+            }
+            fillCurrent = fillQueue[fillIdx];
+            fillSolved = false;
+            fillMissed = false;
+
+            document.getElementById('fill-before').innerText = fillCurrent.before;
+            document.getElementById('fill-after').innerText = (/^[.!?]/.test(fillCurrent.after) ? '' : ' ') + fillCurrent.after;
+            document.getElementById('fill-blank').innerHTML = '&nbsp;';
+            document.getElementById('fill-counter').innerText = `${fillIdx + 1} of ${fillQueue.length}`;
+            const feedback = document.getElementById('fill-feedback');
+            feedback.innerText = "Which word makes sense?";
+            feedback.className = "text-lg md:text-xl font-bold text-sky-950 text-center w-full order-last md:order-none md:w-auto md:flex-1";
+
+            const container = document.getElementById('fill-choices');
+            container.innerHTML = '';
+            shuffleArray(fillCurrent.choices).forEach(word => {
+                const btn = document.createElement('button');
+                btn.className = "bouncy-btn bg-amber-50 hover:bg-amber-100 border-4 border-slate-900 text-slate-950 font-bold py-5 px-4 rounded-3xl shadow-md text-4xl md:text-5xl transition";
+                btn.innerText = word;
+                btn.onpointerdown = (e) => { e.preventDefault(); checkFillChoice(word, btn); };
+                container.appendChild(btn);
+            });
+        }
+
+        function playFillSentence() {
+            // Says "blank" until solved, so hearing it never gives the answer away
+            playClip(clipName(fillSentenceText(fillCurrent, fillSolved ? fillCurrent.choices[0] : 'blank')));
+        }
+
+        function checkFillChoice(word, btn) {
+            if (fillSolved || btn.disabled) return;
+            const feedback = document.getElementById('fill-feedback');
+            if (word === fillCurrent.choices[0]) {
+                fillSolved = true;
+                document.getElementById('fill-blank').innerText = word;
+                btn.className = "bouncy-btn bg-emerald-600 border-4 border-emerald-950 text-white font-bold py-5 px-4 rounded-3xl shadow-xl text-4xl md:text-5xl scale-105 transition";
+                [...document.getElementById('fill-choices').children].forEach(b => { if (b !== btn) b.classList.add('opacity-40'); });
+                feedback.innerText = "🎉 Yes! Now read the whole sentence!";
+                feedback.className = "text-lg md:text-xl font-bold text-emerald-800 text-center w-full order-last md:order-none md:w-auto md:flex-1";
+                playFillSentence();
+                popConfetti();
+                // A star only for getting it on the first try, so reading pays off and tapping everything doesn't
+                if (!fillMissed) addStar();
+            } else {
+                fillMissed = true;
+                btn.disabled = true;
+                btn.className = "bouncy-btn bg-rose-100 border-4 border-rose-600 text-rose-950 font-bold py-5 px-4 rounded-3xl shadow-sm text-4xl md:text-5xl opacity-75 transition";
+                feedback.innerText = `That says "${word}". Does it make sense? Try again!`;
+                feedback.className = "text-lg md:text-xl font-bold text-rose-800 text-center w-full order-last md:order-none md:w-auto md:flex-1";
+                playClip(wordClip(word));
             }
         }
 

@@ -12,6 +12,7 @@ Setup:
   python3 -m venv venv && ./venv/bin/pip install edge-tts soundfile numpy
   ./venv/bin/python tools/generate_audio.py              # everything
   ./venv/bin/python tools/generate_audio.py sound-f hint-th   # only these clips
+  ./venv/bin/python tools/generate_audio.py --missing         # only clips with no file yet
 """
 import asyncio, json, os, re, subprocess, sys, tempfile
 import edge_tts
@@ -47,7 +48,13 @@ def page_text():
         words.update(re.sub(r"[.!]", "", w).lower() for w in s)
     words.update(d.lower() for d in decoys)
     words.update(TWO_LETTER_EXAMPLES.values())
-    return sorted(words), [" ".join(s) for s in sentences]
+    spoken = [" ".join(s) for s in sentences]
+    for before, after, choices in re.findall(r'\{ before: "(.*?)", after: "(.*?)", choices: \[(.*?)\] \}', html):
+        choices = json.loads("[" + choices + "]")
+        words.update(choices)
+        gap = "" if after[0] in ".!?" else " "
+        spoken += [f"{before} {w}{gap}{after}" for w in (choices[0], "blank")]
+    return sorted(words), spoken
 
 
 def decode(path):
@@ -114,9 +121,14 @@ async def edge_word(word, rate="-10%"):
     return audio[start:int((offset + duration + 0.1) * SR)]
 
 
-async def main(only=()):
+async def main(only=(), missing=False):
     os.makedirs(OUT, exist_ok=True)
-    wanted = lambda name: not only or name in only
+
+    def wanted(name):
+        if missing:
+            return not os.path.exists(os.path.join(OUT, name + ".mp3"))
+        return not only or name in only
+
     names = []
     sounds = {}
     for token, (word, rule) in CUTS.items():
@@ -129,19 +141,16 @@ async def main(only=()):
             gap = np.zeros(int(0.25 * SR), np.float32)
             save(np.concatenate([sounds[token], gap, await edge(f"as in {example}.")]), f"hint-{token}")
         names.append(f"hint-{token}")
-    if only:
-        print(f"re-rendered {len(only)} clips")
-        return
-
     words, sentences = page_text()
     sem = asyncio.Semaphore(6)
 
-    async def run(name, render):
-        async with sem:
-            save(await render, name)
-            names.append(name)
-    await asyncio.gather(*[run(f"word-{w}", edge_word(w)) for w in words],
-                         *[run(slug(s), edge(s, "-15%")) for s in sentences + PHRASES])
+    async def run(name, text, render, *args):
+        names.append(name)
+        if wanted(name):
+            async with sem:
+                save(await render(text, *args), name)
+    await asyncio.gather(*[run(f"word-{w}", w, edge_word) for w in words],
+                         *[run(slug(s), s, edge, "-15%") for s in dict.fromkeys(sentences + PHRASES)])
 
     with open(os.path.join(OUT, "manifest.json"), "w") as f:
         json.dump(sorted(names), f, indent=0)
@@ -149,4 +158,5 @@ async def main(only=()):
 
 
 if __name__ == "__main__":
-    asyncio.run(main(set(sys.argv[1:])))
+    args = set(sys.argv[1:])
+    asyncio.run(main(args - {"--missing"}, "--missing" in args))
