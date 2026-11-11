@@ -5,7 +5,10 @@ Each sound comes from a source word and a cut rule:
   "cv"     - the consonant(s) plus a short clipped vowel (b + "uh" from "bug")
   "vowel"  - the vowel of a vowel-first word, before the closing consonant (a from "at")
   "coda"   - the voiced tail after an initial voiceless consonant (rrr from "fur")
-  "noise"  - a clean breath with the tone of a faint sound (f from "off", th from "bath")
+  "noise"  - a clean breath with the tone of a faint sound (f from "off")
+  "held"   - a faint consonant's real hiss, lengthened and raised, then its glide into a
+             short vowel (th + "uh" from a slow "thumb"); the glide is what makes th sound like th
+An optional third item is the speaking rate for the source word (default -10%).
 """
 import subprocess
 import numpy as np
@@ -17,7 +20,7 @@ WIN = int(0.03 * SR)
 CUTS = {
     "a": ("at", "vowel"), "e": ("etch", "vowel"), "i": ("itch", "vowel"),
     "o": ("ox", "vowel"), "u": ("up", "vowel"),
-    "s": ("sun", "onset"), "f": ("off", "noise"), "sh": ("shut", "onset"), "th": ("bath", "noise"),
+    "s": ("sun", "onset"), "f": ("off", "noise"), "sh": ("shut", "onset"), "th": ("thumb", "held", "-40%"),
     "m": ("mud", "onset"), "n": ("nut", "onset"), "l": ("lull", "onset"), "v": ("van", "onset"),
     "z": ("zap", "onset"), "r": ("fur", "coda"),
     "b": ("bug", "cv"), "c": ("cup", "cv"), "k": ("cup", "cv"), "ck": ("cup", "cv"),
@@ -102,6 +105,44 @@ def shaped_noise(a, seconds=0.55, level=0.09):
     return fade(out * level / np.sqrt(np.mean(out ** 2)), 0.04, 0.12)
 
 
+def held(a, rms, v0, seconds=0.35, level=0.3):
+    """Real faint consonant, lengthened by layering overlapping 25 ms pieces of itself (no pitch
+    warble, unlike time-stretching; pieces are randomly flipped and reversed so the repeats
+    don't line up into a metallic ring), raised to `level` x the vowel's loudness, then the original
+    glide into ~90 ms of vowel."""
+    s0 = int(np.argmax(rms > 0.002 * rms.max()))
+    t0 = max(s0, v0 - 3)  # the glide starts about 30 ms before the vowel
+    fric = a[s0 * HOP:t0 * HOP]
+    if len(fric) / SR < 0.06:
+        raise ValueError(f"consonant too short to hold: {len(fric) / SR:.3f}s")
+    spec = np.fft.rfft(fric)
+    spec[np.fft.rfftfreq(len(fric), 1 / SR) < 700] = 0  # drop rumble and voicing bleed
+    fric = np.fft.irfft(spec, len(fric))
+    core = fric[len(fric) // 5:4 * len(fric) // 5]
+    g = int(0.025 * SR)
+    if len(core) <= g:
+        raise ValueError("consonant too short to hold")
+    rng = np.random.default_rng(7)
+    out = np.zeros(int(seconds * SR), np.float32)
+    win = np.hanning(g)
+    for pos in range(0, len(out) - g, g // 2):
+        k = rng.integers(0, len(core) - g)
+        piece = core[k:k + g] if rng.random() < 0.5 else core[k:k + g][::-1]
+        out[pos:pos + g] += piece * win * rng.choice([-1, 1])
+    tail = a[t0 * HOP:(v0 + 9) * HOP].astype(np.float32)
+    vowel_rms = np.sqrt(np.mean(a[v0 * HOP:(v0 + 9) * HOP] ** 2))
+    gain = level * vowel_rms / np.sqrt(np.mean(out[g:-g] ** 2))
+    out *= gain
+    # the glide still opens with the same faint hiss: ease its boost down to 1 by the vowel,
+    # so the held part and the glide join without a gap
+    pre = (v0 - t0) * HOP
+    tail[:pre] *= np.linspace(gain, 1, pre)
+    x = int(0.015 * SR)  # crossfade into the glide
+    ramp = np.linspace(0, 1, x)
+    joined = np.concatenate([out[:-x], out[-x:] * (1 - ramp) + tail[:x] * ramp, tail[x:]])
+    return fade(joined, 0.03, 0.05)
+
+
 def cut(a, rule):
     if rule == "noise":
         return shaped_noise(a)
@@ -117,6 +158,8 @@ def cut(a, rule):
         # already includes the vowel's rising edge) so weak sounds like f survive
         typical = np.percentile(rms[start:v0], 75)
         start += int(np.argmax(rms[start:v0] > 0.25 * typical))
+    if rule == "held":
+        return held(a, rms, v0)
     if rule == "onset":
         seg = a[start * HOP:v0 * HOP]
         if len(seg) / SR < 0.05:

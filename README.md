@@ -14,8 +14,9 @@ voices tested.
 Isolated phonics sounds (/s/, /m/, short a, "buh"…) are cut out of real words Aria speaks ("sun",
 "mud", "at", "bug"), because TTS engines read bare sounds as letter names ("ess") or add stray vowels.
 Continuous sounds are held with no added vowel; stop sounds keep only a short, clipped vowel.
-/f/ and /th/ are so faint that amplifying a cut adds noise, so they are a clean breath built from the
-measured tone of Aria's "off" and "bath".
+/f/ is so faint that amplifying a cut adds noise, so it is a clean breath built from the measured tone
+of Aria's "off". /th/ is Aria's real "th" from a slow "thumb", lengthened and raised, then its glide into
+a short "uh": on its own a th hiss is hard to recognize, and the glide is what makes it sound like th.
 
 ## Fill the Blank
 

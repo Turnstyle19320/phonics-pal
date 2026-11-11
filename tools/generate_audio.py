@@ -131,8 +131,8 @@ async def main(only=(), missing=False):
 
     names = []
     sounds = {}
-    for token, (word, rule) in CUTS.items():
-        sounds[token] = cut(await edge(f"{word}.", raw=True), rule)
+    for token, (word, rule, *rate) in CUTS.items():
+        sounds[token] = cut(await edge(f"{word}.", rate[0] if rate else "-10%", raw=True), rule)
         if wanted(f"sound-{token}"):
             save(sounds[token], f"sound-{token}", normalize=rule != "noise")
         names.append(f"sound-{token}")
